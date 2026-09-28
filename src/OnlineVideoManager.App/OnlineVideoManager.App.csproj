@@ -25,7 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\OnlineVideoManager.Core\OnlineVideoManager.Core.csproj" />
+    <ProjectReference Include="..\OnlineVideoManager.Contracts\OnlineVideoManager.Contracts.csproj" />
     <ProjectReference Include="..\OnlineVideoManager.ViewModels\OnlineVideoManager.ViewModels.csproj" />
     <ProjectReference Include="..\OnlineVideoManager.Interop\OnlineVideoManager.Interop.csproj" />
   </ItemGroup>

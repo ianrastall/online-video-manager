@@ -1,5 +1,5 @@
 param([switch]$SkipBuild, [switch]$DevelopmentCertificate, [string]$CertificateThumbprint,
-    [string]$Publisher = 'CN=Online Video Manager', [string]$Version = '0.1.0.0')
+    [string]$Publisher = 'CN=Online Video Manager', [string]$Version = '0.2.0.0')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot
 if ($Version -notmatch '^\d+\.\d+\.\d+\.\d+$') { throw 'Use a four-part numeric package version.' }
@@ -11,7 +11,7 @@ $sdk = Get-ChildItem -LiteralPath $sdkRoot -Directory | Where-Object {
 if (-not $sdk) { throw 'Install the Windows SDK (MakeAppx and SignTool).' }
 $stage = Join-Path $root ('artifacts\package-stage-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
-Copy-Item -Path "$root\artifacts\app\*" -Destination $stage -Recurse
+Copy-Item -Path "$root\artifacts\app-v2\*" -Destination $stage -Recurse
 if (-not (Test-Path -LiteralPath "$stage\ovm_core.dll")) { throw 'Native engine is missing; run Build.ps1.' }
 Copy-Item -LiteralPath "$root\packaging\Assets" -Destination $stage -Recurse
 [xml]$manifest = Get-Content -LiteralPath "$root\packaging\AppxManifest.xml" -Raw

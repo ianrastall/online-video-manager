@@ -12,7 +12,13 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\OnlineVideoManager.Core\OnlineVideoManager.Core.csproj" />
+    <ProjectReference Include="..\..\src\OnlineVideoManager.Interop\OnlineVideoManager.Interop.csproj" />
     <ProjectReference Include="..\..\src\OnlineVideoManager.ViewModels\OnlineVideoManager.ViewModels.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="../../artifacts/native/ovm_core.dll" Link="ovm_core.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="RequireNativeEngine" BeforeTargets="Build" Condition="!Exists('../../artifacts/native/ovm_core.dll')">
+    <Error Text="Build the C++ engine first: pwsh scripts/Build-Native.ps1" />
+  </Target>
 </Project>

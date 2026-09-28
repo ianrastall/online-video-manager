@@ -1,22 +1,27 @@
 #pragma once
 #include <stdint.h>
-#ifdef __cplusplus
-extern "C" {
+#define OVM_CALL __cdecl
+#ifdef OVM_BUILD
+#define OVM_API __declspec(dllexport)
+#else
+#define OVM_API __declspec(dllimport)
 #endif
-/* ABI 1. UTF-8, NUL-terminated JSON; cdecl. See Core/Interop/Protocol.cs for schema.
-   create -> execute (exactly once, blocking worker call) -> destroy.
-   cancel may run concurrently with execute; destroy must wait for execute to return.
-   Events may arrive concurrently from worker threads. Event memory is borrowed for
-   the duration of the callback. Copy it if needed. Never throw across the boundary.
-   execute returns owned JSON; release with ovm_free. NULL indicates allocation failure.
-   Keep the native library loaded until process exit (NativeAOT does not support unload). */
-int32_t ovm_abi_version(void);
-int64_t ovm_create(void);
-void ovm_cancel(int64_t handle);
-void ovm_destroy(int64_t handle);
-typedef void (__cdecl *ovm_event)(const char* json, void* context);
-char* ovm_execute(int64_t handle, const char* request, ovm_event callback, void* context);
-void ovm_free(char* response);
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+    /* ABI 2: C++ engine; UTF-8 JSON, opaque uint64 handles, no CLR or C++ objects.
+       ovm_open returns {handle,error}; empty home selects the Windows default.
+       execute returns {state,...} or {error}; see docs/abi.md for commands.
+       Every returned string is caller-owned and must be passed to ovm_free.
+       NULL indicates allocation failure. Commands are serialized, workers are native.
+       close cancels and joins workers; finish outstanding calls before closing.
+       No exception crosses the ABI. Free buffers before unloading the DLL. */
+    OVM_API int32_t OVM_CALL ovm_abi_version(void);
+    OVM_API char *OVM_CALL ovm_open(const char *home_utf8);
+    OVM_API char *OVM_CALL ovm_execute(uint64_t handle, const char *request_json);
+    OVM_API void OVM_CALL ovm_close(uint64_t handle);
+    OVM_API void OVM_CALL ovm_free(char *response);
 #ifdef __cplusplus
 }
 #endif

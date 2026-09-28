@@ -1,79 +1,28 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using OnlineVideoManager.Core.Tools;
+using OnlineVideoManager.Contracts;
 
 namespace OnlineVideoManager.ViewModels;
 
 public sealed partial class ToolItemViewModel : ObservableObject
 {
     private readonly ToolsViewModel _owner;
-
-    internal ToolItemViewModel(ToolsViewModel owner, ToolId id)
-    {
-        _owner = owner;
-        Id = id;
-    }
-
-    public ToolId Id { get; }
-
-    public string Name => Id.Name();
-
-    public string Description => Id.Description();
-
-    /// <summary>Installed version; null when not installed.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsInstalled), nameof(InstalledText), nameof(UpdateAvailable), nameof(StatusText), nameof(ActionText))]
-    public partial string? InstalledVersion { get; set; }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LatestText), nameof(UpdateAvailable), nameof(StatusText), nameof(ActionText))]
-    public partial ToolRelease? Latest { get; set; }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LatestText), nameof(StatusText))]
-    public partial string? LatestError { get; set; }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText))]
-    [NotifyCanExecuteChangedFor(nameof(InstallCommand))]
-    public partial bool IsWorking { get; set; }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText))]
-    public partial string ActivityText { get; set; } = "";
-
-    [ObservableProperty]
-    public partial double ProgressValue { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsProgressIndeterminate { get; set; } = true;
-
-    /// <summary>Extra detail line (ffmpeg: whether ffprobe is present).</summary>
-    [ObservableProperty]
-    public partial string Detail { get; set; } = "";
-
-    public bool IsInstalled => InstalledVersion is not null;
-
-    public string InstalledText => InstalledVersion ?? "Not installed";
-
-    public string LatestText => Latest?.Version ?? (LatestError is null ? "Not checked" : "Check failed");
-
-    public bool UpdateAvailable => IsInstalled && Latest is not null && InstalledVersion != Latest.Version;
-
-    public string StatusText => IsWorking
-        ? ActivityText
-        : !IsInstalled ? "Not installed"
-        : UpdateAvailable ? "Update available"
-        : Latest is not null ? "Up to date"
-        : LatestError is not null ? "Installed; could not check for updates"
-        : "Installed";
-
+    private ToolSnapshot _state;
+    internal ToolItemViewModel(ToolsViewModel owner, ToolSnapshot state) { _owner = owner; _state = state; }
+    public string Id => _state.Id;
+    public string Name => Id == "ffmpeg" ? "FFmpeg + ffprobe" : Id == "deno" ? "Deno" : "yt-dlp";
+    public string Description => Id switch { "ffmpeg" => "Media conversion and inspection", "deno" => "JavaScript runtime for video extraction", _ => "Video and audio downloader" };
+    public bool IsWorking => _state.Working;
+    public bool IsInstalled => _state.Installed.Length > 0;
+    public string InstalledText => IsInstalled ? _state.Installed : "Not installed";
+    public string LatestText => _state.Latest.Length > 0 ? _state.Latest : "Not checked";
+    public bool UpdateAvailable => IsInstalled && _state.Latest.Length > 0 && _state.Latest != _state.Installed;
+    public string StatusText => IsWorking ? _state.Activity : _state.Error.Length > 0 ? _state.Error : !IsInstalled ? "Not installed" : UpdateAvailable ? "Update available" : "Installed";
     public string ActionText => !IsInstalled ? "Install" : UpdateAvailable ? "Update" : "Reinstall";
-
+    public string Detail => Id == "ffmpeg" && IsInstalled ? "Includes ffprobe" : "";
+    public double ProgressValue => Math.Max(0, _state.Progress) * 100;
+    public bool IsProgressIndeterminate => _state.Progress < 0;
     private bool CanInstall() => !IsWorking && !_owner.IsBusy;
-
-    [RelayCommand(CanExecute = nameof(CanInstall))]
-    private Task InstallAsync() => _owner.InstallAsync([this]);
-
-    internal void RefreshCommands() => InstallCommand.NotifyCanExecuteChanged();
+    [RelayCommand(CanExecute = nameof(CanInstall))] private Task InstallAsync() => _owner.InstallAsync(Id);
+    internal void Apply(ToolSnapshot state) { _state = state; OnPropertyChanged((string?)null); InstallCommand.NotifyCanExecuteChanged(); }
 }

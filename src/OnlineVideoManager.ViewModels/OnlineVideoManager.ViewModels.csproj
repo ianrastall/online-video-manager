@@ -9,7 +9,7 @@
     <PackageReference Include="CommunityToolkit.Mvvm" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\OnlineVideoManager.Core\OnlineVideoManager.Core.csproj" />
+    <ProjectReference Include="..\OnlineVideoManager.Contracts\OnlineVideoManager.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="OnlineVideoManager.Tests" />

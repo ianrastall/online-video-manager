@@ -10,9 +10,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet test --project tests/OnlineVideoManager.Tests
       - shell: pwsh
         run: ./scripts/Build.ps1
+      - run: dotnet test --project tests/OnlineVideoManager.Tests
       - shell: pwsh
         run: ./scripts/Smoke-Native.ps1
       - shell: pwsh

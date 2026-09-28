@@ -1,67 +1,56 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
-using OnlineVideoManager.Core.Downloads;
-using OnlineVideoManager.Core.Interop;
-using OnlineVideoManager.Core.Settings;
-using OnlineVideoManager.Core.Tools;
+using OnlineVideoManager.Contracts;
 using OnlineVideoManager.Interop;
 
 var root = Path.GetFullPath(args[0]);
-NativeLibrary.SetDllImportResolver(typeof(NativeCore).Assembly, (name, _, _) =>
+NativeLibrary.SetDllImportResolver(typeof(NativeEngine).Assembly, (name, _, _) =>
     name == "ovm_core" ? NativeLibrary.Load(Path.Combine(root, "artifacts", "native", "ovm_core.dll")) : 0);
-var work = Path.Combine(root, "artifacts", "smoke");
+var work = Path.Combine(root, "artifacts", "cpp-smoke-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(work);
 void Check(bool condition, string description)
 {
     if (!condition) throw new Exception(description);
     Console.WriteLine("PASS: " + description);
 }
-
-var missing = await NativeCore.CallAsync(new("version", Path.Combine(work, "missing")));
-Check(missing.Version is null, "Missing-tool lookup through native ABI");
-try { await NativeCore.CallAsync(new("invalid")); throw new Exception("Missing error"); }
-catch (InvalidOperationException ex) { Check(ex.Message.Contains("Unknown operation"), "Native errors returned safely"); }
-
-var script = Path.Combine(work, "fake-downloader.ps1");
-await File.WriteAllTextAsync(script, "[Console]::OutputEncoding=[Text.UTF8Encoding]::new(); Write-Output '@@T Native ABI smoke'; Write-Output '@@P 50|100|NA|25|2'; Write-Output '@@F C:\\test.mp4'", new UTF8Encoding(true));
-var powershell = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe");
-var runner = new NativeDownloadRunner();
-var updates = new ConcurrentQueue<JobUpdate>();
-var request = new DownloadRequest(powershell, work, ["-NoProfile", "-File", script], work);
-Check(await runner.RunAsync(request, updates.Enqueue, default) == 0, "Process execution through native engine");
-Check(updates.Any(e => e is JobUpdate.Progress { Downloaded: 50 }) && updates.Any(e => e is JobUpdate.Title), "Progress and title callbacks cross C ABI");
-
-await File.WriteAllTextAsync(script, "Start-Sleep -Seconds 60");
-using (var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(500)))
-{
-    var timer = Stopwatch.StartNew();
-    try { await runner.RunAsync(request, _ => { }, cancellation.Token); throw new Exception("Did not cancel"); }
-    catch (OperationCanceledException) { Check(timer.Elapsed < TimeSpan.FromSeconds(10), "Cancellation terminates the process"); }
-}
-try
-{
-    await runner.RunAsync(request with { MinimumFreeBytes = long.MaxValue }, _ => { }, default);
-    throw new Exception("Did not block low disk");
-}
-catch (InvalidOperationException ex) { Check(ex.Message.Contains("Low disk space"), "Native engine refuses insufficient disk space"); }
-
+using var engine = new NativeEngine(work);
+var settings = engine.Execute(new("snapshot")).State!.Settings;
+settings.CheckForToolUpdatesOnStartup = false;
+settings.InstallToolUpdatesAutomatically = false;
+settings.WatchClipboard = false;
+settings.ToolsDirectory = Path.Combine(root, "artifacts", "cpp-smoke-tools");
+settings.OutputDirectory = work;
+settings.EmbedThumbnail = false;
+settings.Container = VideoContainer.Mp4;
+settings.AudioFormat = AudioFormat.Flac;
+engine.Execute(new("settings.set", Settings: settings));
+try { engine.Execute(new("invalid")); throw new Exception("Missing native error"); }
+catch (InvalidOperationException ex) { Check(ex.Message.Contains("Unknown engine operation"), "Native errors returned safely"); }
+var collected = engine.Execute(new("clipboard.collect", Text: "https://vimeo.com/123")).State!;
+Check(collected.Items.Length == 0 && collected.Inbox.Length == 1 && !collected.Running, "Clipboard collection never starts downloads");
 if (!args.Contains("--live")) return;
-var toolDirectory = Path.Combine(work, "tools");
-var manager = new NativeToolManager();
-foreach (var id in ToolIdExtensions.All)
+
+engine.Execute(new("tools.update"));
+var deadline = DateTime.UtcNow.AddMinutes(15);
+var lastActivity = "";
+EngineSnapshot state;
+do
 {
-    var release = await manager.GetLatestAsync(id, UpdateChannel.Stable);
-    if (await manager.GetLocalVersionAsync(toolDirectory, id) != release.Version)
-        await manager.InstallAsync(toolDirectory, id, release, null);
-    Check(await manager.GetLocalVersionAsync(toolDirectory, id) is not (null or "unknown"), $"Live {id} checksum-verified install and executable version");
-}
-Check(File.Exists(ToolIdExtensions.FfprobePath(toolDirectory)), "FFprobe installed");
+    await Task.Delay(250);
+    state = engine.Execute(new("snapshot")).State!;
+    var activity = string.Join("; ", state.Tools.Where(t => t.Working).Select(t => t.Id + ": " + t.Activity));
+    if (activity != lastActivity) { Console.WriteLine(activity); lastActivity = activity; }
+    if (DateTime.UtcNow > deadline) throw new TimeoutException("Native tool installation timed out.");
+} while (state.ToolsBusy);
+foreach (var tool in state.Tools)
+    Check(tool.Installed.Length > 0 && tool.Installed != "unknown" && tool.Error.Length == 0, $"Native checksum-verified {tool.Id} install: {tool.Installed} {tool.Error}");
+Check(File.Exists(Path.Combine(settings.ToolsDirectory, "ffprobe.exe")), "ffprobe included");
+
 var fixture = Path.Combine(work, "fixture.mp4");
-var psi = new ProcessStartInfo(ToolId.Ffmpeg.ExecutablePath(toolDirectory)) { UseShellExecute = false, CreateNoWindow = true };
+var psi = new ProcessStartInfo(Path.Combine(settings.ToolsDirectory, "ffmpeg.exe")) { UseShellExecute = false, CreateNoWindow = true };
 foreach (var argument in new[] { "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=blue:s=160x90:d=1", "-f", "lavfi", "-i", "sine=frequency=440:duration=1", "-c:v", "libx264", "-c:a", "aac", "-shortest", fixture }) psi.ArgumentList.Add(argument);
 using (var process = Process.Start(psi)!) { await process.WaitForExitAsync(); Check(process.ExitCode == 0, "Generated one-second media fixture"); }
 var media = await File.ReadAllBytesAsync(fixture);
@@ -91,13 +80,24 @@ try
 {
     foreach (var mode in new[] { DownloadMode.Video, DownloadMode.Audio })
     {
-        var settings = new AppSettings { OutputDirectory = work, OutputTemplate = "download-" + mode + ".%(ext)s", Container = VideoContainer.Mp4, AudioFormat = AudioFormat.Flac, EmbedThumbnail = false };
-        var url = $"http://127.0.0.1:{port}/fixture.mp4";
-        var arguments = YtDlpArguments.Build(settings, toolDirectory, mode, url);
-        var events = new ConcurrentQueue<JobUpdate>();
-        var exitCode = await runner.RunAsync(new(ToolId.YtDlp.ExecutablePath(toolDirectory), toolDirectory, arguments, work), events.Enqueue, default);
-        Check(exitCode == 0, $"Real yt-dlp {mode} download and FFmpeg processing: " + string.Join("; ", events.OfType<JobUpdate.Log>().Where(e => e.IsError).Select(e => e.Line)));
-        Check(events.OfType<JobUpdate.FileSaved>().Any(e => File.Exists(e.Path)), $"Real {mode} output exists");
+        settings.OutputTemplate = "download-" + mode + ".%(ext)s";
+        engine.Execute(new("settings.set", Settings: settings));
+        var added = engine.Execute(new("queue.add", Text: $"http://127.0.0.1:{port}/fixture.mp4", Mode: mode)).State!.Items.Last();
+        engine.Execute(new("queue.start"));
+        deadline = DateTime.UtcNow.AddMinutes(2);
+        DownloadSnapshot item;
+        bool progress = false;
+        do
+        {
+            await Task.Delay(50);
+            item = engine.Execute(new("snapshot")).State!.Items.Single(i => i.Id == added.Id);
+            progress |= item.Downloaded > 0;
+            if (DateTime.UtcNow > deadline) throw new TimeoutException("Native media download timed out.");
+        } while (item.Status is DownloadStatus.Running or DownloadStatus.Queued);
+        Check(item.Status == DownloadStatus.Completed, $"Native {mode} queue execution: {item.Error} " + string.Join("; ", item.Logs));
+        Check(File.Exists(item.FilePath), $"Real {mode} output exists");
+        Check(Path.GetExtension(item.FilePath) == (mode == DownloadMode.Video ? ".mp4" : ".flac"), $"Requested {mode} format delivered");
+        Check(progress, $"Native {mode} progress crossed the ABI");
     }
 }
 finally { serverStop.Cancel(); listener.Stop(); await server; }

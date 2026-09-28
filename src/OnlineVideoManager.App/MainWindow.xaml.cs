@@ -77,7 +77,7 @@ public sealed partial class MainWindow : Window
                     if (!ContentFrame.Navigate(page)) throw new InvalidOperationException($"Could not load {page.Name}.");
                     await Task.Delay(150);
                 }
-                File.WriteAllText(Path.Combine(Core.AppPaths.DataDirectory, "smoke-passed"), "All pages loaded.");
+                File.WriteAllText(Path.Combine(App.GetService<SettingsService>().DataDirectory, "smoke-passed"), "All pages loaded.");
                 ViewModel.Shutdown();
                 Application.Current.Exit();
             }

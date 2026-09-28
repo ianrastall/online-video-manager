@@ -1,12 +1,9 @@
+using OnlineVideoManager.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using OnlineVideoManager.Interop;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using OnlineVideoManager.App.Services;
-using OnlineVideoManager.Core;
-using OnlineVideoManager.Core.Downloads;
-using OnlineVideoManager.Core.Settings;
-using OnlineVideoManager.Core.Tools;
 using OnlineVideoManager.ViewModels;
 using OnlineVideoManager.ViewModels.Services;
 
@@ -53,16 +50,15 @@ public partial class App : Application
 
     private static ServiceProvider ConfigureServices(DispatcherQueue dispatcherQueue)
     {
-        var settingsStore = SettingsStore.Default;
-        var settings = settingsStore.Load();
+
+
 
         var services = new ServiceCollection();
 
-        // Core
-        services.AddSingleton(new SettingsService(settings, settingsStore));
-        services.AddSingleton(QueueStore.Default);
-        services.AddSingleton<IDownloadRunner, NativeDownloadRunner>();
-        services.AddSingleton<IToolManager>(_ => new NativeToolManager());
+        // The native C++ engine owns all application state and work.
+        services.AddSingleton<IEngine>(_ => new NativeEngine());
+        services.AddSingleton<EngineSession>();
+        services.AddSingleton<SettingsService>();
 
         // Platform services
         services.AddSingleton<IUiDispatcher>(new DispatcherQueueUiDispatcher(dispatcherQueue));
@@ -73,7 +69,7 @@ public partial class App : Application
 
         // View models
         services.AddSingleton<NotificationViewModel>();
-        services.AddSingleton<WorkCoordinator>();
+
         services.AddSingleton<DownloadsViewModel>();
         services.AddSingleton<ClipboardInboxViewModel>();
         services.AddSingleton<ToolsViewModel>();
@@ -98,13 +94,14 @@ public partial class App : Application
 
 internal static class CrashLog
 {
-    public static string Path => System.IO.Path.Combine(AppPaths.DataDirectory, "error.log");
+    private static string DirectoryPath => Environment.GetEnvironmentVariable("OVM_HOME") ?? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OnlineVideoManager");
+    public static string Path => System.IO.Path.Combine(DirectoryPath, "error.log");
 
     public static void Write(Exception exception)
     {
         try
         {
-            Directory.CreateDirectory(AppPaths.DataDirectory);
+            Directory.CreateDirectory(DirectoryPath);
             File.AppendAllText(Path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {exception}{Environment.NewLine}{Environment.NewLine}");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

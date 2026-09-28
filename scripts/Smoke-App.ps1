@@ -5,7 +5,7 @@ $smokeHome = Join-Path $root ('artifacts\app-smoke-' + [guid]::NewGuid().ToStrin
 New-Item -ItemType Directory -Path $smokeHome -Force | Out-Null
 @{watchClipboard=$false; checkForToolUpdatesOnStartup=$false; installToolUpdatesAutomatically=$false} |
     ConvertTo-Json | Set-Content -LiteralPath (Join-Path $smokeHome 'settings.json')
-$app = Start-Process -FilePath "$root\artifacts\app\OnlineVideoManager.exe" -WindowStyle Hidden `
+$app = Start-Process -FilePath "$root\artifacts\app-v2\OnlineVideoManager.exe" -WindowStyle Hidden `
     -Environment @{OVM_HOME=$smokeHome; OVM_SMOKE_TEST='1'} -PassThru
 try {
     if (-not $app.WaitForExit(20000)) { throw 'Application smoke test timed out.' }

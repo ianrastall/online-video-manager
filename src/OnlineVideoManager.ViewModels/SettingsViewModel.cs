@@ -1,9 +1,9 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using OnlineVideoManager.Core;
-using OnlineVideoManager.Core.Links;
-using OnlineVideoManager.Core.Settings;
+using OnlineVideoManager.Contracts;
+
+
 using OnlineVideoManager.ViewModels.Services;
 
 namespace OnlineVideoManager.ViewModels;
@@ -29,6 +29,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _settings.Changed += (_, _) => OnPropertyChanged(nameof(WatchClipboard));
     }
 
+    private static readonly int[] HeightChoices = [0, 4320, 2160, 1440, 1080, 720, 480, 360];
     private AppSettings S => _settings.Current;
 
     // ----- option lists for combo boxes -------------------------------------------------
@@ -39,7 +40,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public string[] ContainerOptions { get; } =
         ["MKV (keeps original streams)", "MP4", "Automatic"];
 
-    public string[] MaxHeightOptions { get; } = AppSettings.MaxHeightChoices
+    public string[] MaxHeightOptions { get; } = HeightChoices
         .Select(h => h == 0 ? "Best available" : string.Create(CultureInfo.InvariantCulture, $"Up to {h}p"))
         .ToArray();
 
@@ -56,7 +57,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public string[] BrowserOptions { get; } = Browsers.Select(b => b.Label).ToArray();
 
-    public string KnownSitesText { get; } = string.Join(", ", KnownVideoSites.Domains);
+    public string KnownSitesText => string.Join(", ", _settings.KnownSites);
 
     // ----- downloads ------------------------------------------------------------------------
 
@@ -98,8 +99,8 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public int MaxHeightIndex
     {
-        get => Math.Max(0, Array.IndexOf(AppSettings.MaxHeightChoices, S.MaxHeight));
-        set => SetIndex(value, MaxHeightOptions.Length, MaxHeightIndex, v => S.MaxHeight = AppSettings.MaxHeightChoices[v]);
+        get => Math.Max(0, Array.IndexOf(HeightChoices, S.MaxHeight));
+        set => SetIndex(value, MaxHeightOptions.Length, MaxHeightIndex, v => S.MaxHeight = HeightChoices[v]);
     }
 
     public int AudioFormatIndex
@@ -212,11 +213,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         set => SetFlag(S.WatchClipboard, value, v => S.WatchClipboard = v);
     }
 
-    public bool AutoQueueClipboardLinks
-    {
-        get => S.AutoQueueClipboardLinks;
-        set => SetFlag(S.AutoQueueClipboardLinks, value, v => S.AutoQueueClipboardLinks = v);
-    }
+
 
     public bool AcceptAnyLink
     {
@@ -232,7 +229,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             var sites = (value ?? "")
                 .Split(['\r', '\n', ',', ' ', '\t'], StringSplitOptions.RemoveEmptyEntries)
-                .Select(NormalizeSite)
+
                 .Where(s => s.Length > 0)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -250,7 +247,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     // ----- tools -----------------------------------------------------------------------------------
 
     public string ToolsDirectoryText =>
-        string.IsNullOrWhiteSpace(S.ToolsDirectory) ? $"Automatic ({S.ResolvedToolsDirectory})" : S.ToolsDirectory;
+        string.IsNullOrWhiteSpace(S.ToolsDirectory) ? $"Automatic ({_settings.ToolsDirectory})" : S.ToolsDirectory;
 
     public bool HasCustomToolsDirectory => !string.IsNullOrWhiteSpace(S.ToolsDirectory);
 
@@ -272,7 +269,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         set => SetFlag(S.InstallToolUpdatesAutomatically, value, v => S.InstallToolUpdatesAutomatically = v);
     }
 
-    public string DataDirectory => AppPaths.DataDirectory;
+    public string DataDirectory => _settings.DataDirectory;
 
     // ----- commands ----------------------------------------------------------------------------------
 
@@ -298,7 +295,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private void UseAutomaticToolsDirectory() => SetToolsDirectory(null);
 
     [RelayCommand]
-    private void ResetOutputTemplate() => OutputTemplate = new AppSettings().OutputTemplate;
+    private void ResetOutputTemplate() { _settings.ResetOutputTemplate(); OnPropertyChanged(nameof(OutputTemplate)); }
 
     private void SetToolsDirectory(string? folder)
     {
@@ -307,7 +304,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        S.ToolsDirectory = folder;
+        S.ToolsDirectory = folder ?? "";
         OnPropertyChanged(nameof(ToolsDirectoryText));
         OnPropertyChanged(nameof(HasCustomToolsDirectory));
         Save();
@@ -348,15 +345,5 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
-    internal static string NormalizeSite(string text)
-    {
-        var site = text.Trim();
-        if (Uri.TryCreate(site.Contains("://", StringComparison.Ordinal) ? site : "https://" + site, UriKind.Absolute, out var uri))
-        {
-            site = uri.Host;
-        }
 
-        site = site.Trim('.').ToLowerInvariant();
-        return site.StartsWith("www.", StringComparison.Ordinal) ? site[4..] : site;
-    }
 }

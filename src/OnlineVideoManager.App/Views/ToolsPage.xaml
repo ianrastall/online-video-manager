@@ -45,6 +45,7 @@
             <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}">
                 <ProgressBar IsIndeterminate="True" />
                 <TextBlock Style="{StaticResource SecondaryTextStyle}" Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
+                <Button Content="Cancel tool operation" Command="{x:Bind ViewModel.CancelCommand}" />
             </StackPanel>
 
             <ItemsControl ItemsSource="{x:Bind ViewModel.Tools}">
@@ -101,7 +102,7 @@
 
             <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Activity" />
             <Border Style="{StaticResource CardStyle}" MinHeight="80">
-                <ItemsControl ItemsSource="{x:Bind ViewModel.LogLines}">
+                <ItemsControl ItemsSource="{x:Bind ViewModel.LogLines, Mode=OneWay}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="x:String">
                             <TextBlock Style="{StaticResource LogTextStyle}" Text="{x:Bind}" />

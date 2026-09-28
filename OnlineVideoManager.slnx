@@ -6,9 +6,8 @@
     <Project Path="src/OnlineVideoManager.App/OnlineVideoManager.App.csproj">
       <Platform Project="x64" />
     </Project>
-    <Project Path="src/OnlineVideoManager.Core/OnlineVideoManager.Core.csproj" />
+    <Project Path="src/OnlineVideoManager.Contracts/OnlineVideoManager.Contracts.csproj" />
     <Project Path="src/OnlineVideoManager.Interop/OnlineVideoManager.Interop.csproj" />
-    <Project Path="src/OnlineVideoManager.Native/OnlineVideoManager.Native.csproj" />
     <Project Path="src/OnlineVideoManager.ViewModels/OnlineVideoManager.ViewModels.csproj" />
   </Folder>
   <Folder Name="/tests/">

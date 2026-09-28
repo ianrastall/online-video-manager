@@ -1,33 +1,29 @@
-using OnlineVideoManager.Core.Settings;
+using OnlineVideoManager.Contracts;
 
 namespace OnlineVideoManager.ViewModels;
 
-/// <summary>Owns the live <see cref="AppSettings"/> instance and tells interested view models when it changes.</summary>
-public sealed class SettingsService(AppSettings current, SettingsStore store)
+public sealed class SettingsService
 {
-    public AppSettings Current { get; } = current;
-
-    public string ToolsDirectory => Current.ResolvedToolsDirectory;
-    public string DataDirectory => Path.GetDirectoryName(Path.GetFullPath(store.Path))!;
-
+    private readonly EngineSession _engine;
+    public SettingsService(EngineSession engine)
+    {
+        _engine = engine;
+        engine.Changed += (_, _) => Changed?.Invoke(this, EventArgs.Empty);
+    }
+    public AppSettings Current => _engine.State.Settings;
+    public string ToolsDirectory => _engine.State.ToolsDirectory;
+    public string DataDirectory => _engine.State.DataDirectory;
+    public string[] KnownSites => _engine.State.KnownSites;
     public event EventHandler? Changed;
-
-    /// <summary>Write the settings file and raise <see cref="Changed"/>. Returns false with
-    /// <paramref name="error"/> set when the file could not be written; the in-memory settings
-    /// still apply for this session.</summary>
     public bool Save(out string? error)
     {
-        error = null;
-        try
-        {
-            store.Save(Current);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        try { _engine.Execute(new("settings.set", Settings: Current)); error = null; return true; }
+        catch (Exception ex)
         {
             error = ex.Message;
+            _engine.Execute(new("snapshot"));
+            return false;
         }
-
-        Changed?.Invoke(this, EventArgs.Empty);
-        return error is null;
     }
+    public void ResetOutputTemplate() => _engine.Execute(new("settings.resetTemplate"));
 }

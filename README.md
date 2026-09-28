@@ -30,19 +30,19 @@ This explicitly imports the adjacent development certificate into `LocalMachine/
 
 ## Build and verify
 
-Install the .NET 10 SDK, Windows SDK, and Visual Studio C++ build tools (Desktop development with C++, required by NativeAOT). Visual Studio with WinUI tooling is optional for editing.
+Install the .NET 10 SDK, Windows SDK, and Visual Studio 2022 or 2026 with Desktop development with C++ and CMake tools. The engine is ordinary C++20 compiled by MSVC. Visual Studio with WinUI tooling is optional for editing.
 
 ```powershell
-dotnet test --project tests/OnlineVideoManager.Tests
 ./scripts/Build.ps1
+dotnet test --project tests/OnlineVideoManager.Tests
 ./scripts/Smoke-Native.ps1
 ./scripts/Smoke-App.ps1
 ./scripts/Package.ps1 -SkipBuild -DevelopmentCertificate
 ```
 
-`Build.ps1` publishes the native DLL first and the WinUI app second. For local development, run `artifacts/app/OnlineVideoManager.exe` or build/run the App project after the native build. The app's publish payload is self-contained and is wrapped by `Package.ps1` in MSIX; `WindowsPackageType=None` describes the payload build, not the delivered installer.
+`Build.ps1` builds the C++ DLL, runs native tests and a plain C ABI client, then publishes the WinUI app. For local development, run `artifacts/app-v2/OnlineVideoManager.exe`. `Build-Native.ps1` builds and tests only the engine. CMake fetches nlohmann/json and miniz from pinned releases with SHA-256 verification; their licenses accompany the published app. The self-contained payload is wrapped by `Package.ps1` in MSIX.
 
-To test real downloads of upstream tools and a one-second local media fixture, run `./scripts/Smoke-Native.ps1 -Live`. It installs tools in `artifacts/smoke/tools`, exercises native process execution, cancellation, errors, disk refusal, callbacks, and real MP4/FLAC output without relying on a third-party video account. Regular tests cover queue behavior, clipboard persistence, parsing, settings, codec selection, checksum rejection, and tool installation. `Smoke-App.ps1` launches the published WinUI app with isolated data and loads all three pages. Interactive visual inspection and clean-machine MSIX installation still require a manual Windows acceptance pass.
+To test upstream downloads and a one-second local media fixture, run `./scripts/Smoke-Native.ps1 -Live`. The C++ engine installs tools in `artifacts/cpp-smoke-tools`, verifies their checksums, and produces MP4/FLAC output through its own queue. Offline native tests cover process-tree cancellation, update/download coordination, failed-install rollback, ZIP extraction, disk refusal, parsing, and persistence. Managed integration tests exercise the DLL through P/Invoke and the MVVM projections. `Smoke-App.ps1` launches the published WinUI app with isolated data and loads all three pages. Clean-machine MSIX installation still requires a Windows acceptance pass.
 
 For release signing:
 
@@ -57,12 +57,14 @@ The publisher must exactly match the signing certificate subject. CI builds and 
 | Project | Responsibility |
 | --- | --- |
 | `OnlineVideoManager.App` | WinUI views, Win32 clipboard notifications, pickers, shell integration, composition |
-| `OnlineVideoManager.ViewModels` | UI-independent MVVM, queue scheduling and update coordination |
-| `OnlineVideoManager.Interop` | Managed adapters calling the native C ABI; no direct process/tool implementation |
-| `OnlineVideoManager.Native` | NativeAOT `ovm_core.dll`; download process execution, progress parsing, disk monitoring, tool discovery and installation |
-| `OnlineVideoManager.Core` | Shared contracts and UI-free engine source; link filtering, argument construction and JSON persistence also used by managed presentation services |
+| `OnlineVideoManager.ViewModels` | UI-independent MVVM; sends commands and displays native snapshots |
+| `OnlineVideoManager.Contracts` | Wire DTOs, enums and source-generated JSON |
+| `OnlineVideoManager.Interop` | P/Invoke, UTF-8 JSON marshalling, and SafeHandle lifetime |
+| `native/` | C++20 `ovm_core.dll`; all application state and business logic |
 
-The core is implemented in C# and compiled to native machine code with NativeAOT. Its external interface is a C ABI, not a requirement for a C-language implementation. [`include/ovm.h`](include/ovm.h) documents ownership, threading and lifetime. ABI 1 uses UTF-8 JSON requests/responses and events, explicit cancellation handles, and explicit result deallocation. Errors never intentionally cross the ABI as exceptions. Keep the DLL loaded until process exit.
+The engine is implemented in C++, with no CLR dependency. It owns URL extraction and qualification, codec/quality policy, command construction, queue scheduling, settings and inbox persistence, progress parsing, disk checks, Windows Job Objects, HTTPS transfers, SHA-256 verification, archive extraction, and transactional tool replacement. C# handles WinUI/MVVM presentation and Windows UI services.
+
+[`include/ovm.h`](include/ovm.h) and [the ABI reference](docs/abi.md) document ABI 2: five C exports, opaque integer handles, UTF-8 JSON commands/snapshots, and explicit result deallocation. The plain C test client runs the engine without .NET. This replaces the former C# NativeAOT implementation; existing settings, queue and inbox JSON are read by the native engine. ABI 1 clients must migrate.
 
 Data is stored under `%LOCALAPPDATA%/OnlineVideoManager` (Windows may redirect this into package-local storage for MSIX), with `OVM_HOME` as a test/development override. Default output is `Videos/OVM`. The application writes tools to per-user storage, never into the read-only MSIX install directory.
 
@@ -74,7 +76,9 @@ OVM carries forward code from Ian Rastall's `universal-video-downloader` project
 - [yt-dlp EJS/runtime requirements](https://github.com/yt-dlp/yt-dlp/wiki/EJS)
 - [Deno releases](https://github.com/denoland/deno/releases)
 - [BtbN FFmpeg builds](https://github.com/BtbN/FFmpeg-Builds)
-- [.NET NativeAOT libraries](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/libraries)
+- [Windows Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
+- [nlohmann/json](https://github.com/nlohmann/json)
+- [miniz](https://github.com/richgel999/miniz)
 - [MSIX packaging](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-manual-conversion)
 
 External utilities retain their respective licenses; FFmpeg downloads use BtbN's GPL shared build. They are acquired at runtime and not bundled into OVM's repository or installer.
