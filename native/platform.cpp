@@ -81,7 +81,7 @@ fs::path default_home()
 }
 fs::path default_output()
 {
-    return known_folder(FOLDERID_Videos) / L"OVM";
+    return fs::path(L"D:\\all");
 }
 std::string read_text(const fs::path &file, size_t limit)
 {
@@ -172,6 +172,11 @@ int run_process(const fs::path &executable, const std::vector<std::string> &argu
                 std::atomic_bool &stop, const LineCallback &line, const fs::path &output, std::chrono::seconds timeout)
 {
     canceled(stop);
+    // Child tools can leave the MSIX file-system view. MSVC canonical() resolves the
+    // opened file through GetFinalPathNameByHandleW, so their loader (and yt-dlp's
+    // self-extractor) can find the executable and its adjacent DLLs on disk.
+    const auto executable_path = fs::canonical(executable);
+    const auto working_directory = directory.empty() ? fs::path{} : fs::canonical(directory);
     // Damaged tools must produce an error, never a Windows loader dialog on a worker thread.
     const DWORD old_mode = GetThreadErrorMode();
     if (!SetThreadErrorMode(old_mode | SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX,
@@ -186,7 +191,7 @@ int run_process(const fs::path &executable, const std::vector<std::string> &argu
         }
     } error_mode{old_mode};
     DWORD binary_type = 0;
-    if (!GetBinaryTypeW(executable.c_str(), &binary_type) || binary_type != SCS_64BIT_BINARY)
+    if (!GetBinaryTypeW(executable_path.c_str(), &binary_type) || binary_type != SCS_64BIT_BINARY)
         throw std::runtime_error("Tool is not a valid Windows x64 executable: " + path_text(executable));
     if (!output.empty())
         ensure_disk(output);
@@ -233,15 +238,15 @@ int run_process(const fs::path &executable, const std::vector<std::string> &argu
     si.StartupInfo.hStdInput = input.value;
     si.StartupInfo.hStdOutput = wo;
     si.StartupInfo.hStdError = we;
-    std::wstring command = quote_argument(executable.wstring());
+    std::wstring command = quote_argument(executable_path.wstring());
     for (const auto &a : arguments)
         command += L" " + quote_argument(wide(a));
     if (command.size() >= 32767)
         throw std::runtime_error("Download command exceeds the Windows command line limit.");
     PROCESS_INFORMATION pi{};
-    if (!CreateProcessW(executable.c_str(), command.data(), nullptr, nullptr, TRUE,
+    if (!CreateProcessW(executable_path.c_str(), command.data(), nullptr, nullptr, TRUE,
                         CREATE_NO_WINDOW | CREATE_SUSPENDED | EXTENDED_STARTUPINFO_PRESENT, nullptr,
-                        directory.empty() ? nullptr : directory.c_str(), &si.StartupInfo, &pi))
+                        working_directory.empty() ? nullptr : working_directory.c_str(), &si.StartupInfo, &pi))
         throw std::runtime_error(error_text("Cannot start " + path_text(executable)));
     Handle process(pi.hProcess), thread(pi.hThread);
     if (!AssignProcessToJobObject(job.value, pi.hProcess))
@@ -354,7 +359,16 @@ std::string capture(const fs::path &executable, const std::vector<std::string> &
         },
         {}, std::chrono::seconds(20));
     if (exit)
-        return "";
+    {
+        std::ostringstream error;
+        error << path_text(executable.filename()) << " exited with code 0x" << std::hex << std::uppercase
+              << std::setw(8) << std::setfill('0') << static_cast<DWORD>(exit) << ".";
+        if (static_cast<DWORD>(exit) == 0xC0000135)
+            error << " A required DLL could not be found.";
+        if (!trim(out).empty())
+            error << " " << trim(out).substr(0, 4096);
+        throw std::runtime_error(error.str());
+    }
     return trim(out);
 }
 struct Internet

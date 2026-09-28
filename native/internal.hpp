@@ -91,7 +91,8 @@ fs::path tools_path(const json &settings, const fs::path &home);
 std::string executable_name(const std::string &tool);
 bool tools_ready(const fs::path &directory);
 json latest_release(const std::string &tool, const std::string &channel, std::atomic_bool &stop);
-std::string local_version(const fs::path &directory, const std::string &tool, std::atomic_bool &stop);
+std::string local_version(const fs::path &directory, const std::string &tool, std::atomic_bool &stop,
+                          std::string *failure = nullptr);
 using InstallProgress = std::function<void(const std::string &, double)>;
 void install_tool(const fs::path &directory, const std::string &tool, const json &release, std::atomic_bool &stop,
                   const InstallProgress &progress);

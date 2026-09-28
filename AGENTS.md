@@ -8,6 +8,7 @@ C# 14 / .NET 10, WinUI 3, dark theme, CommunityToolkit.Mvvm. Windows x64.
 - `ViewModels`: UI-independent MVVM, native snapshot presentation, and platform service interfaces. No queue scheduling, tool execution, networking, or persistence.
 - `App`: Windows platform services and views. Keep business logic out of code-behind.
 - Package with `pwsh scripts/Package.ps1`; ship MSIX, including the native engine.
+- Keep generated build files and logs under `.build/`; `artifacts/installer/` is only for the current installer, public certificate, and install script. Clean up temporary packaging and test folders.
 - Use centrally pinned NuGet versions, partial observable properties, and source-generated JSON.
 - Preserve checksum verification, cancellation of process trees, and update/download coordination.
 - Clipboard capture collects only; it must never start downloads.

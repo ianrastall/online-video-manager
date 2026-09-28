@@ -32,6 +32,12 @@ This explicitly imports the adjacent development certificate into `LocalMachine/
 
 Install the .NET 10 SDK, Windows SDK, and Visual Studio 2022 or 2026 with Desktop development with C++ and CMake tools. The engine is ordinary C++20 compiled by MSVC. Visual Studio with WinUI tooling is optional for editing.
 
+**For a local installer, double-click `Build-Installer.bat`** in the project folder. PowerShell 7 (`pwsh`) must also be installed. The batch file builds Release, runs native and managed tests, and creates a signed MSIX in `artifacts/installer`. It reuses your existing signing certificate when available, or creates a development certificate on the first build. Each installer gets a version higher than the installed package and earlier local installers.
+
+When it finishes, close OVM and double-click the resulting MSIX to update. The build does not install the app or change certificate trust. If the certificate is new to the machine, use the one-time trust command printed at the end. Failures leave `.build/logs/build-installer.log`; the batch window stays open so errors are visible. From a terminal or automation, use `Build-Installer.bat --no-pause`.
+
+`artifacts/installer` contains only the current MSIX, its public signing certificate, and `Install.ps1`. Successful signed packaging removes older installer versions; temporary packaging and smoke-test folders are cleaned automatically. Build intermediates, downloaded build dependencies, and logs stay under the ignored `.build` folder. Historical repository bundles are preserved separately in the ignored `backups/legacy-repositories` folder.
+
 ```powershell
 ./scripts/Build.ps1
 dotnet test --project tests/OnlineVideoManager.Tests
@@ -40,9 +46,9 @@ dotnet test --project tests/OnlineVideoManager.Tests
 ./scripts/Package.ps1 -SkipBuild -DevelopmentCertificate
 ```
 
-`Build.ps1` builds the C++ DLL, runs native tests and a plain C ABI client, then publishes the WinUI app. For local development, run `artifacts/app-v2/OnlineVideoManager.exe`. `Build-Native.ps1` builds and tests only the engine. CMake fetches nlohmann/json and miniz from pinned releases with SHA-256 verification; their licenses accompany the published app. The self-contained payload is wrapped by `Package.ps1` in MSIX.
+`Build.ps1` builds the C++ DLL, runs native tests and a plain C ABI client, then publishes the WinUI app. For local development, run `.build/app/OnlineVideoManager.exe`. `Build-Native.ps1` builds and tests only the engine. CMake fetches nlohmann/json and miniz from pinned releases with SHA-256 verification; their licenses accompany the published app. The self-contained payload is wrapped by `Package.ps1` in MSIX.
 
-To test upstream downloads and a one-second local media fixture, run `./scripts/Smoke-Native.ps1 -Live`. The C++ engine installs tools in `artifacts/cpp-smoke-tools`, verifies their checksums, and produces MP4/FLAC output through its own queue. Offline native tests cover process-tree cancellation, update/download coordination, failed-install rollback, ZIP extraction, disk refusal, parsing, and persistence. Managed integration tests exercise the DLL through P/Invoke and the MVVM projections. `Smoke-App.ps1` launches the published WinUI app with isolated data and loads all three pages. Clean-machine MSIX installation still requires a Windows acceptance pass.
+To test upstream downloads and a one-second local media fixture, run `./scripts/Smoke-Native.ps1 -Live`. The C++ engine installs tools in `.build/smoke/tools`, verifies their checksums, and produces MP4/FLAC output through its own queue. Offline native tests cover process-tree cancellation, update/download coordination, failed-install rollback, ZIP extraction, disk refusal, parsing, and persistence. Managed integration tests exercise the DLL through P/Invoke and the MVVM projections. `Smoke-App.ps1` launches the published WinUI app with isolated data and loads all three pages. Clean-machine MSIX installation still requires a Windows acceptance pass.
 
 For release signing:
 

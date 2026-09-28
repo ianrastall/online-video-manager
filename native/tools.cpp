@@ -8,7 +8,10 @@ namespace ovm
 fs::path tools_path(const json &settings, const fs::path &home)
 {
     auto configured = settings.value("toolsDirectory", std::string());
-    return configured.empty() ? home / L"tools" : path(configured);
+    auto directory = configured.empty() ? home / L"tools" : path(configured);
+    // Pass real paths to yt-dlp's --ffmpeg-location and --js-runtimes too; its
+    // subprocesses do not necessarily inherit the app's MSIX redirection.
+    return fs::exists(directory) ? fs::canonical(directory) : directory;
 }
 std::string executable_name(const std::string &tool)
 {
@@ -115,8 +118,11 @@ json latest_release(const std::string &tool, const std::string &channel, std::at
     }
     throw std::runtime_error("No compatible Windows x64 release found for " + tool);
 }
-std::string local_version(const fs::path &directory, const std::string &tool, std::atomic_bool &stop)
+std::string local_version(const fs::path &directory, const std::string &tool, std::atomic_bool &stop,
+                          std::string *failure)
 {
+    if (failure)
+        failure->clear();
     const auto executable = directory / path(executable_name(tool));
     if (!fs::is_regular_file(executable) || (tool == "ffmpeg" && !fs::is_regular_file(directory / L"ffprobe.exe")))
         return "";
@@ -153,8 +159,10 @@ std::string local_version(const fs::path &directory, const std::string &tool, st
     {
         throw;
     }
-    catch (const std::exception &)
+    catch (const std::exception &ex)
     {
+        if (failure)
+            *failure = ex.what();
     }
     return "unknown";
 }
@@ -244,9 +252,11 @@ void commit_tool_files(const fs::path &directory, const fs::path &staging, const
             installed.push_back(file.filename());
         }
         // Check the executables before committing the new installation.
-        const auto version = local_version(directory, tool, stop);
+        std::string failure;
+        const auto version = local_version(directory, tool, stop, &failure);
         if (version.empty() || version == "unknown")
-            throw std::runtime_error("Installed tool failed its version check.");
+            throw std::runtime_error("Installed tool failed its version check." +
+                                     (failure.empty() ? "" : " " + failure));
         auto manifest = read_json(directory / L".ovm-tools.json", json::object());
         if (!manifest.is_object())
             manifest = json::object();

@@ -155,6 +155,26 @@ int main(int argc, char **argv)
         fs::create_directories(fake);
         for (const auto &name : {L"yt-dlp.exe", L"deno.exe", L"ffmpeg.exe", L"ffprobe.exe"})
             fs::copy_file(helper, fake / name, fs::copy_options::overwrite_existing);
+        {
+            std::ofstream sidecar(fake / L"sidecar.txt");
+            sidecar << "Adjacent tool dependency";
+        }
+        check(capture(fake / L"yt-dlp.exe", {"--check-paths"}, stop) == "Child paths are accessible",
+              "Child can reopen executable, adjacent dependencies, and working directory");
+        check(tools_path({{"toolsDirectory", path_text(fake)}}, root) == fs::canonical(fake),
+              "Tool arguments use physical directory paths");
+        rejected = false;
+        try
+        {
+            capture(helper, {"https://fixture.test/fail"}, stop);
+        }
+        catch (const std::exception &ex)
+        {
+            const std::string error = ex.what();
+            rejected = error.find("0x00000003") != std::string::npos &&
+                       error.find("ERROR: fixture failure") != std::string::npos;
+        }
+        check(rejected, "Version-check failures retain exit code and tool diagnostics");
         auto staging = fake / L"test-staging";
         fs::create_directories(staging / L"out");
         const auto old_hash = sha256(fake / L"yt-dlp.exe");

@@ -29,8 +29,8 @@
     <ProjectReference Include="..\OnlineVideoManager.ViewModels\OnlineVideoManager.ViewModels.csproj" />
     <ProjectReference Include="..\OnlineVideoManager.Interop\OnlineVideoManager.Interop.csproj" />
   </ItemGroup>
-  <ItemGroup Condition="Exists('..\..\artifacts\native\ovm_core.dll')">
-    <Content Include="..\..\artifacts\native\ovm_core.dll" Link="ovm_core.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  <ItemGroup Condition="Exists('..\..\.build\native\ovm_core.dll')">
+    <Content Include="..\..\.build\native\ovm_core.dll" Link="ovm_core.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <!-- The SDK's unpackaged publish does not carry the app's compiled XAML/PRI by default. -->
   <Target Name="IncludeWinUIResourcesInPublish" AfterTargets="ComputeFilesToPublish">

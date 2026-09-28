@@ -8,9 +8,9 @@ using OnlineVideoManager.Interop;
 
 var root = Path.GetFullPath(args[0]);
 NativeLibrary.SetDllImportResolver(typeof(NativeEngine).Assembly, (name, _, _) =>
-    name == "ovm_core" ? NativeLibrary.Load(Path.Combine(root, "artifacts", "native", "ovm_core.dll")) : 0);
-var work = Path.Combine(root, "artifacts", "cpp-smoke-" + Guid.NewGuid().ToString("N"));
-Directory.CreateDirectory(work);
+    name == "ovm_core" ? NativeLibrary.Load(Path.Combine(root, ".build", "native", "ovm_core.dll")) : 0);
+using var smokeDirectory = new SmokeDirectory(Path.Combine(root, ".build", "smoke"));
+var work = smokeDirectory.Path;
 void Check(bool condition, string description)
 {
     if (!condition) throw new Exception(description);
@@ -21,7 +21,7 @@ var settings = engine.Execute(new("snapshot")).State!.Settings;
 settings.CheckForToolUpdatesOnStartup = false;
 settings.InstallToolUpdatesAutomatically = false;
 settings.WatchClipboard = false;
-settings.ToolsDirectory = Path.Combine(root, "artifacts", "cpp-smoke-tools");
+settings.ToolsDirectory = Path.Combine(root, ".build", "smoke", "tools");
 settings.OutputDirectory = work;
 settings.EmbedThumbnail = false;
 settings.Container = VideoContainer.Mp4;
@@ -101,3 +101,15 @@ try
     }
 }
 finally { serverStop.Cancel(); listener.Stop(); await server; }
+
+// Dispose after the engine so no native worker still holds the test files.
+sealed class SmokeDirectory : IDisposable
+{
+    public SmokeDirectory(string parent)
+    {
+        Path = System.IO.Path.Combine(System.IO.Path.GetFullPath(parent), "native-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path);
+    }
+    public string Path { get; }
+    public void Dispose() => Directory.Delete(Path, recursive: true);
+}
