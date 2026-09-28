@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- MVVM layer. No WinUI references: platform services are reached through the interfaces
+       in Services/, which the WinUI app implements. Builds and tests on any OS. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>OnlineVideoManager.ViewModels</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OnlineVideoManager.Core\OnlineVideoManager.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="OnlineVideoManager.Tests" />
+  </ItemGroup>
+</Project>

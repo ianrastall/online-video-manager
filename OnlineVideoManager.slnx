@@ -1,0 +1,18 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/OnlineVideoManager.App/OnlineVideoManager.App.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/OnlineVideoManager.Core/OnlineVideoManager.Core.csproj" />
+    <Project Path="src/OnlineVideoManager.Interop/OnlineVideoManager.Interop.csproj" />
+    <Project Path="src/OnlineVideoManager.Native/OnlineVideoManager.Native.csproj" />
+    <Project Path="src/OnlineVideoManager.ViewModels/OnlineVideoManager.ViewModels.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OnlineVideoManager.NativeSmoke/OnlineVideoManager.NativeSmoke.csproj" />
+    <Project Path="tests/OnlineVideoManager.Tests/OnlineVideoManager.Tests.csproj" />
+  </Folder>
+</Solution>

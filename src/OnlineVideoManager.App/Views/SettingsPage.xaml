@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="OnlineVideoManager.App.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    NavigationCacheMode="Required">
+
+    <ScrollViewer>
+        <StackPanel Padding="16,12,16,24" Spacing="12" MaxWidth="960" HorizontalAlignment="Stretch">
+            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Settings" />
+
+            <!-- Downloads -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="14">
+                    <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Downloads" />
+
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Header="Save downloads to" Text="{x:Bind ViewModel.OutputDirectory, Mode=TwoWay}" />
+                        <Button Grid.Column="1" VerticalAlignment="Bottom" Content="Browse" Command="{x:Bind ViewModel.BrowseOutputDirectoryCommand}" />
+                    </Grid>
+
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox
+                            Header="File name template (yt-dlp output template)"
+                            FontFamily="Cascadia Mono, Consolas"
+                            Text="{x:Bind ViewModel.OutputTemplate, Mode=TwoWay}" />
+                        <Button Grid.Column="1" VerticalAlignment="Bottom" Content="Reset" Command="{x:Bind ViewModel.ResetOutputTemplateCommand}" />
+                    </Grid>
+
+                    <Grid ColumnSpacing="12" RowSpacing="14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <ComboBox
+                            HorizontalAlignment="Stretch"
+                            Header="New links download as"
+                            ItemsSource="{x:Bind ViewModel.ModeOptions}"
+                            SelectedIndex="{x:Bind ViewModel.DefaultModeIndex, Mode=TwoWay}" />
+                        <ComboBox
+                            Grid.Column="1"
+                            HorizontalAlignment="Stretch"
+                            Header="Video quality"
+                            ItemsSource="{x:Bind ViewModel.MaxHeightOptions}"
+                            SelectedIndex="{x:Bind ViewModel.MaxHeightIndex, Mode=TwoWay}" />
+                        <ComboBox
+                            Grid.Row="1"
+                            HorizontalAlignment="Stretch"
+                            Header="Video file type"
+                            ItemsSource="{x:Bind ViewModel.ContainerOptions}"
+                            SelectedIndex="{x:Bind ViewModel.ContainerIndex, Mode=TwoWay}" />
+                        <ComboBox
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            HorizontalAlignment="Stretch"
+                            Header="Audio-only format"
+                            ItemsSource="{x:Bind ViewModel.AudioFormatOptions}"
+                            SelectedIndex="{x:Bind ViewModel.AudioFormatIndex, Mode=TwoWay}" />
+                        <NumberBox
+                            Grid.Row="2"
+                            Header="Downloads at the same time"
+                            Minimum="1"
+                            Maximum="8"
+                            SmallChange="1"
+                            SpinButtonPlacementMode="Inline"
+                            Value="{x:Bind ViewModel.Concurrency, Mode=TwoWay}" />
+                        <TextBox
+                            Grid.Row="2"
+                            Grid.Column="1"
+                            Header="Speed limit (empty for none, e.g. 5M)"
+                            Text="{x:Bind ViewModel.RateLimit, Mode=TwoWay}" />
+                    </Grid>
+
+                    <ComboBox Header="Video codec" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.VideoCodecOptions}" SelectedIndex="{x:Bind ViewModel.VideoCodecIndex, Mode=TwoWay}" />
+                    <TextBlock Style="{StaticResource SecondaryTextStyle}" Text="Best available preserves source quality. A specific codec selects the best matching source; if unavailable, the download fails with a clear error. FLAC cannot restore quality missing from a lossy source. OVM keeps 2 GB free on the output drive." />
+                    <ToggleSwitch Header="Start downloading as soon as links are added" IsOn="{x:Bind ViewModel.StartQueueAutomatically, Mode=TwoWay}" />
+                    <ToggleSwitch Header="A link to a video inside a playlist downloads only that video" IsOn="{x:Bind ViewModel.SingleVideoFromPlaylistLinks, Mode=TwoWay}" />
+                    <ToggleSwitch Header="Embed title, artist and other metadata" IsOn="{x:Bind ViewModel.EmbedMetadata, Mode=TwoWay}" />
+                    <ToggleSwitch Header="Embed thumbnail as cover art" IsOn="{x:Bind ViewModel.EmbedThumbnail, Mode=TwoWay}" />
+                    <ToggleSwitch Header="Embed subtitles (video only)" IsOn="{x:Bind ViewModel.EmbedSubtitles, Mode=TwoWay}" />
+                    <TextBox
+                        Header="Subtitle languages (yt-dlp --sub-langs, e.g. en.*,de)"
+                        IsEnabled="{x:Bind ViewModel.EmbedSubtitles, Mode=OneWay}"
+                        Text="{x:Bind ViewModel.SubtitleLanguages, Mode=TwoWay}" />
+                    <ToggleSwitch Header="Skip videos already downloaded (keeps archive.txt in the download folder)" IsOn="{x:Bind ViewModel.UseDownloadArchive, Mode=TwoWay}" />
+
+                    <StackPanel Spacing="4">
+                        <ComboBox
+                            MinWidth="240"
+                            Header="Use cookies from browser (for age-restricted or members-only videos)"
+                            ItemsSource="{x:Bind ViewModel.BrowserOptions}"
+                            SelectedIndex="{x:Bind ViewModel.CookiesBrowserIndex, Mode=TwoWay}" />
+                        <TextBlock Style="{StaticResource SecondaryTextStyle}" Text="Firefox works most reliably. Recent Chrome and Edge versions encrypt cookies in a way yt-dlp often cannot read, and the browser may need to be closed." />
+                    </StackPanel>
+
+                    <TextBox
+                        Header="Extra yt-dlp arguments (advanced)"
+                        FontFamily="Cascadia Mono, Consolas"
+                        PlaceholderText="--sponsorblock-remove sponsor"
+                        Text="{x:Bind ViewModel.ExtraArguments, Mode=TwoWay}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Clipboard -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="14">
+                    <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Clipboard" />
+                    <ToggleSwitch Header="Watch the clipboard for video links" IsOn="{x:Bind ViewModel.WatchClipboard, Mode=TwoWay}" />
+                    <ToggleSwitch Header="Pick up links to any website, not only known video sites" IsOn="{x:Bind ViewModel.AcceptAnyLink, Mode=TwoWay}" />
+                    <TextBox
+                        MinHeight="80"
+                        AcceptsReturn="True"
+                        TextWrapping="Wrap"
+                        Header="More video sites to recognise (one domain per line)"
+                        PlaceholderText="example.com"
+                        Text="{x:Bind ViewModel.ExtraSitesText, Mode=TwoWay}" />
+                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Header="Sites recognised already">
+                        <TextBlock Style="{StaticResource SecondaryTextStyle}" IsTextSelectionEnabled="True" Text="{x:Bind ViewModel.KnownSitesText}" />
+                    </Expander>
+                    <TextBlock Style="{StaticResource SecondaryTextStyle}" Text="Anything a password manager marks as private is ignored. Links typed or pasted into the box on the Downloads page are always accepted, whatever the site." />
+                </StackPanel>
+            </Border>
+
+            <!-- Tools -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="14">
+                    <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Tools" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Tools folder" />
+                        <TextBlock Style="{StaticResource SecondaryTextStyle}" IsTextSelectionEnabled="True" Text="{x:Bind ViewModel.ToolsDirectoryText, Mode=OneWay}" />
+                        <StackPanel Margin="0,4,0,0" Orientation="Horizontal" Spacing="8">
+                            <Button Content="Choose folder" Command="{x:Bind ViewModel.BrowseToolsDirectoryCommand}" />
+                            <Button Content="Use automatic location" Command="{x:Bind ViewModel.UseAutomaticToolsDirectoryCommand}" IsEnabled="{x:Bind ViewModel.HasCustomToolsDirectory, Mode=OneWay}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <ComboBox
+                        MinWidth="240"
+                        Header="yt-dlp release channel"
+                        ItemsSource="{x:Bind ViewModel.ChannelOptions}"
+                        SelectedIndex="{x:Bind ViewModel.ChannelIndex, Mode=TwoWay}" />
+                    <ToggleSwitch Header="Check for tool updates at startup and every 24 hours" IsOn="{x:Bind ViewModel.CheckForToolUpdatesOnStartup, Mode=TwoWay}" />
+                    <ToggleSwitch Header="Install missing tools and updates automatically" IsOn="{x:Bind ViewModel.InstallToolUpdatesAutomatically, Mode=TwoWay}" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Style="{StaticResource SecondaryTextStyle}" IsTextSelectionEnabled="True">
+                <Run Text="Settings, queue and error log are kept in " />
+                <Run Text="{x:Bind ViewModel.DataDirectory}" />
+            </TextBlock>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
